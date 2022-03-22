@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { getNonce } from './util';
+import { extensionState } from './extension';
 
 /**
  * Provider for cat scratch editors.
@@ -62,6 +63,30 @@ export class CatScratchEditorProvider implements vscode.CustomTextEditorProvider
 				text: document.getText(),
 			});
 		}
+
+		// Keep track of focus changes so we can track what the currently active editor is.
+		// We need to do this ourselves because with a CustomTextEditor vscode.window.activeTextEditor is always undefined.
+		function handleDidChangeViewState(panel: vscode.WebviewPanel, initialLoadFlag = false) {
+			console.log(
+				`${initialLoadFlag ? '(Initial Load)' : '(onDidChangeViewState)'} Active: ${
+					panel.active
+				} - ${document.uri.toString()}`
+			);
+			if (panel.active) {
+				extensionState.activeWebviewPanel = panel;
+				extensionState.activeDocument = document;
+			} else {
+				extensionState.activeWebviewPanel = undefined;
+				extensionState.activeDocument = undefined;
+			}
+		}
+
+		// We need to manually trigger this once inside of resolveCustomTextEditor since onDidChangeViewState does not run on initial load.
+		handleDidChangeViewState(webviewPanel, true);
+
+		webviewPanel.onDidChangeViewState((e) => {
+			handleDidChangeViewState(e.webviewPanel);
+		});
 
 		// Hook up event handlers so that we can synchronize the webview with the text document.
 		//
